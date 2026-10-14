@@ -1,0 +1,19 @@
+{
+  "name": "rush-gear",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rush Gear - a fully procedural WebGPU racing game built with Three.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.1",
+    "vite": "^8.3.4"
+  }
+}
