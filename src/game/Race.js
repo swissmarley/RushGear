@@ -26,7 +26,7 @@ export class Race {
 			...e, index: i, lap: 1, position: i + 1, currentLapTime: 0, lastLap: Infinity, bestLap: Infinity, totalTime: 0,
 			lapStart: 0, sectorStart: 0, sector: 0, sectorTimes: [ 0, 0, 0 ], bestSectors: [ Infinity, Infinity, Infinity ],
 			sectorStatus: [ '', '', '' ], deltaToBest: null, wrongWay: false, wrongTimer: 0, finished: false, finishTime: Infinity,
-			progress: 0, lastS: e.vehicle.proj?.s ?? 0, checkpoints: 0, gapText: '', lapTimes: [], valid: true, lapsDone: 0, offTrackTimer: 0,
+			progress: 0, lastS: e.vehicle.proj?.s ?? 0, checkpoints: 0, crossedStart: false, gapText: '', lapTimes: [], valid: true, lapsDone: 0, offTrackTimer: 0,
 			lastLapSplits: [ 0, 0, 0 ], bestLapSplits: null
 		} ) );
 		this.standings = this.entries.slice();
@@ -63,11 +63,13 @@ export class Race {
 				if ( crossedForward ) {
 					if ( e.sector === 2 && e.checkpoints >= 2 ) this._endLap( e );
 					else { e.sector = 0; e.checkpoints = 0; e.sectorStart = this.time; }
+					e.crossedStart = true;
 				}
-				if ( crossedBackward ) { e.checkpoints = 0; e.sector = 2; }
+				if ( crossedBackward ) { e.checkpoints = 0; e.sector = 2; if ( e.lapsDone === 0 ) e.crossedStart = false; }
 			}
 			e.lastS = s;
-			e.progress = ( e.lapsDone ) * L + s + ( crossedBackward ? - L : 0 );
+			// cars behind the line on the formation straight count as "lap -1" so the order is continuous
+			e.progress = ( e.lapsDone - ( e.crossedStart ? 0 : 1 ) ) * L + s;
 			// wrong way detection
 			const vt = v.velocity.x * v.proj.tx + v.velocity.z * v.proj.tz;
 			if ( vt < - 3 ) e.wrongTimer += dt; else e.wrongTimer = Math.max( 0, e.wrongTimer - dt * 2 );

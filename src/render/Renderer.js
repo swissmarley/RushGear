@@ -94,6 +94,37 @@ export class GameRenderer {
 		this.scene.add( dome );
 	}
 
+	/**
+	 * Simple time-of-day lighting for a track (sun direction/colour, sky tint, night & wetness
+	 * uniforms). Replaced by the physically based Sky system in a later iteration.
+	 */
+	setEnvironment( track ) {
+		const def = track.def, biome = track.biome;
+		const hour = def.timeOfDay;
+		const elev = Math.sin( ( hour - 6 ) / 12 * Math.PI ) * 1.1;           // crude solar elevation
+		const az = ( hour - 12 ) / 12 * Math.PI;
+		const dir = new Vector3( Math.sin( az ) * Math.cos( elev ), Math.max( elev, - 0.2 ), Math.cos( az ) * Math.cos( elev ) * 0.6 ).normalize();
+		U.sunDir.value.copy( dir );
+		const day = Math.max( 0, Math.min( 1, ( dir.y + 0.05 ) / 0.3 ) );
+		const warm = Math.max( 0, 1 - Math.abs( dir.y ) / 0.35 );
+		U.sunColor.value.setRGB( 1.0, 0.95 - warm * 0.45, 0.85 - warm * 0.65 );
+		U.night.value = 1 - day;
+		U.neon.value = ( 1 - day ) * ( biome.scenery === 'city' ? 1 : 0.3 );
+		U.rain.value = def.weather.rain; U.wetness.value = def.weather.rain;
+		U.heat.value = biome.heat ? 1 : 0;
+		const f = biome.fog;
+		U.fogColor.value.setRGB( ...f.color ).multiplyScalar( 0.3 + 0.7 * day );
+		U.fogDensity.value = f.density; U.fogHeight.value = f.height;
+		U.skyZenith.value.setRGB( 0.18, 0.38, 0.85 ).multiplyScalar( 0.05 + 0.95 * day ).lerp( new Color( 0.6, 0.3, 0.2 ), warm * 0.4 );
+		U.skyHorizon.value.setRGB( 0.72, 0.8, 0.92 ).multiplyScalar( 0.08 + 0.92 * day ).lerp( new Color( 1.0, 0.55, 0.3 ), warm * 0.7 );
+		this.sun.color.copy( U.sunColor.value );
+		this.sun.intensity = 3.2 * Math.max( 0.03, Math.min( 1, dir.y / 0.4 ) );
+		this.hemi.intensity = 0.15 + 0.7 * day;
+		this.hemi.color.copy( U.skyZenith.value ).multiplyScalar( 1.5 );
+		this.scene.background = null;
+		this._sunOffset = dir.clone().multiplyScalar( 220 );
+	}
+
 	/** Keep the shadow frustum centred around the player each frame. */
 	updateShadowTarget( target ) {
 		const s = this.sun;

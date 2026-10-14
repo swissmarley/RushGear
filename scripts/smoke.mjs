@@ -40,23 +40,18 @@ if ( args.includes( '--garage' ) ) {
 	await page.evaluate( () => window.RUSHGEAR.menu.main( window.RUSHGEAR.info ) );
 	if ( args.includes( '--garage-only' ) ) { console.log( `${errors.length} console errors` ); for ( const e of errors.slice( 0, 10 ) ) console.log( ' ERR', e.slice( 0, 800 ) ); await browser.close(); await server.close(); process.exit( errors.length ? 1 : 0 ); }
 }
-await page.evaluate( () => window.RUSHGEAR.startQuickRace( window.RUSHGEAR.menu.selection ) );
+const trackId = opt( '--track', null ), carId = opt( '--car', null );
+await page.evaluate( ( [ t, c ] ) => { const g = window.RUSHGEAR; if ( t ) g.menu.selection.trackId = t; if ( c ) g.menu.selection.carId = c; g.startQuickRace( g.menu.selection ); }, [ trackId, carId ] );
 await page.waitForFunction( () => window.RUSHGEAR.state === 'race', null, { timeout: 120000 } ).catch( () => console.log( 'race not reached' ) );
 await page.waitForTimeout( 1500 );
-await page.screenshot( { path: `${shots}/02-grid.png` } );
-// drive: hold throttle, wiggle steering
-await page.keyboard.down( 'ArrowUp' );
-const t0 = Date.now();
-let i = 0;
-while ( Date.now() - t0 < seconds * 1000 ) {
-	await page.waitForTimeout( 500 );
-	if ( i % 4 === 1 ) await page.keyboard.down( 'ArrowLeft' ); if ( i % 4 === 2 ) await page.keyboard.up( 'ArrowLeft' );
-	i ++;
-}
-await page.keyboard.up( 'ArrowUp' );
-const telemetry = await page.evaluate( () => { const g = window.RUSHGEAR; const v = g.playerCar?.vehicle; return v ? { speedKmh: v.speedKmh.toFixed( 1 ), rpm: v.engine.rpm.toFixed( 0 ), gear: v.engine.gear, pos: v.position.toArray().map( ( x ) => x.toFixed( 1 ) ), s: v.proj.s.toFixed( 1 ), lateral: v.proj.lateral.toFixed( 2 ), onGround: v.wheels.map( ( w ) => w.onGround ), damage: v.damage.toFixed( 2 ), fps: g.hud.el.fps.textContent } : null; } );
+await page.evaluate( () => { if ( window.RUSHGEAR.race ) window.RUSHGEAR.race.countdown = Math.min( window.RUSHGEAR.race.countdown, 0.3 ); } );
+await page.screenshot( { path: `${shots}/02-grid${trackId ? '-' + trackId : ''}.png` } );
+// drive deterministically: autopilot + synchronous simulation, then a few real frames
+await page.evaluate( ( secs ) => { const g = window.RUSHGEAR; g.autopilot = true; g.simulate( secs ); }, seconds );
+await page.waitForTimeout( 1500 );
+const telemetry = await page.evaluate( () => { const g = window.RUSHGEAR; const v = g.playerCar?.vehicle; return v ? { paint: g.playerCar.uniforms.color.value.getHexString(), carId: g.playerCar.def.id, cars: g.cars.length, pos1: g.race?.standings[ 0 ]?.name, playerPos: g.race?.entryOf( v ).position, speedKmh: v.speedKmh.toFixed( 1 ), rpm: v.engine.rpm.toFixed( 0 ), gear: v.engine.gear, pos: v.position.toArray().map( ( x ) => x.toFixed( 1 ) ), s: v.proj.s.toFixed( 1 ), lateral: v.proj.lateral.toFixed( 2 ), onGround: v.wheels.map( ( w ) => w.onGround ), damage: v.damage.toFixed( 2 ), fps: g.hud.el.fps.textContent } : null; } );
 console.log( 'telemetry:', JSON.stringify( telemetry ) );
-await page.screenshot( { path: `${shots}/03-driving.png` } );
+await page.screenshot( { path: `${shots}/03-driving${trackId ? '-' + trackId : ''}.png` } );
 for ( const extra of args.filter( ( a ) => a.startsWith( 'eval:' ) ) ) console.log( 'eval', await page.evaluate( extra.slice( 5 ) ) );
 
 console.log( `\n${errors.length} console errors, ${warnings.length} warnings` );

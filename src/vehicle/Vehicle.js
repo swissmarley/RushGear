@@ -265,7 +265,7 @@ export class Vehicle {
 			const surf = SURF[ w.surface ] || SURF[ SURFACE.ASPHALT ];
 			const muBase = lerp( surf.mu, surf.wetMu, this.wetness ) * def.tyres.grip;
 			const loadSens = clamp( 1.12 - 0.00003 * w.load, 0.8, 1.12 );
-			const mu = muBase * loadSens;
+			const mu = muBase * loadSens * ( w.front ? 1.0 : 1.05 ); // slight rear bias → stable, understeer-leaning balance
 
 			// slip quantities
 			const vAbs = Math.max( Math.abs( vl ), 0.8 );

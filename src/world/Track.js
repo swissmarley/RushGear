@@ -340,8 +340,8 @@ export class Track {
 		g.add( this._buildRoad( materials.asphalt ) );
 		g.add( this._buildKerbs( materials.kerb ) );
 		g.add( this._buildRunoff( materials.runoff ) );
-		g.add( ...this._buildBarriers( materials ) );
-		g.add( ...this._buildTunnels( materials ) );
+		for ( const m of this._buildBarriers( materials ) ) g.add( m );
+		for ( const m of this._buildTunnels( materials ) ) g.add( m );
 		g.add( this._buildTerrain( materials.terrain, quality ) );
 		g.add( this._buildGantry( materials ) );
 		return g;

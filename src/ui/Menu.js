@@ -159,7 +159,7 @@ export class Menu {
 			const a = e.target.closest( 'button' )?.dataset.a;
 			if ( a === 'replay' ) this.game.startReplay();
 			else if ( a === 'restart' ) this.game.restartRace();
-			else if ( a === 'next' ) this.game.championshipNext();
+			else if ( a === 'next' ) this.game.championshipContinue();
 			else if ( a === 'menu' ) this.game.quitToMenu();
 		} );
 		this.show( el );

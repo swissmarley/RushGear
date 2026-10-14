@@ -74,6 +74,7 @@ export class CarBuilder {
 
 		const paintMat = makePaintMaterial( cu, quality );
 		const glassMat = makeGlassMaterial( cu, quality );
+		if ( opts.ghost ) { paintMat.transparent = true; paintMat.depthWrite = false; glassMat.transparent = true; }
 		const headMat = makeLightMaterial( cu, 'head' );
 		const tailMat = makeLightMaterial( cu, 'tail' );
 		const revMat = makeLightMaterial( cu, 'reverse' );
@@ -199,11 +200,12 @@ export class CarBuilder {
 
 		/* ---- lights ----------------------------------------------------------------------- */
 		const nose = last, tail = first;
-		const headGeo = def.lights.head === 'slim' ? new BoxGeometry( 0.42, 0.06, 0.08 ) : new SphereGeometry( 0.11, 16, 12 );
+		const headGeo = def.lights.head === 'slim' ? new BoxGeometry( 0.42, 0.06, 0.08 ) : def.lights.head === 'round' ? new CylinderGeometry( 0.12, 0.12, 0.06, 16 ) : new SphereGeometry( 0.11, 16, 12 );
 		for ( const side of [ - 1, 1 ] ) {
 			const h = new Mesh( headGeo, headMat );
 			h.position.set( side * nose.hw * 0.72, lerp( nose.floor, nose.belt, 0.7 ), nose.z - 0.02 );
-			if ( def.lights.head !== 'slim' ) h.scale.set( 1.4, 0.7, 0.6 );
+			if ( def.lights.head === 'oval' ) h.scale.set( 1.4, 0.7, 0.6 );
+			if ( def.lights.head === 'round' ) h.rotation.x = Math.PI / 2;
 			h.name = 'headlight';
 			group.add( h );
 		}
@@ -236,6 +238,9 @@ export class CarBuilder {
 			const lip = new Mesh( new BoxGeometry( tail.hw * 1.8, sp.height, 0.08 ), shared.carbon );
 			lip.position.set( 0, tail.roof + sp.height / 2, tail.z + 0.06 );
 			group.add( lip );
+		} else if ( sp && sp.type === 'roof' ) {
+			const rs = new Mesh( new BoxGeometry( tail.roofHw * 2.0, 0.05, 0.3 ), paintMat );
+			rs.position.set( 0, tail.roof + 0.03, tail.z + 0.2 ); rs.rotation.x = - 0.2; group.add( rs );
 		} else if ( sp && sp.type === 'ducktail' ) {
 			const d = new Mesh( new BoxGeometry( tail.hw * 1.7, 0.05, 0.3 ), paintMat );
 			d.position.set( 0, tail.roof + 0.04, tail.z + 0.12 ); d.rotation.x = - 0.35; group.add( d );
