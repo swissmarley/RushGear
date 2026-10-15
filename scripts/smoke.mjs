@@ -20,7 +20,7 @@ await server.listen();
 
 const browser = await chromium.launch( {
 	executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium', headless: true,
-	args: [ '--no-sandbox', '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-vulkan=swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader' ]
+	args: [ '--no-sandbox', '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-vulkan=swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required' ]
 } );
 const preset = opt( '--preset', 'low' );
 const page = await browser.newPage( { viewport: { width: parseInt( opt( '--width', '800' ) ), height: parseInt( opt( '--height', '450' ) ) } } );
@@ -83,7 +83,8 @@ await page.waitForTimeout( 1500 );
 await page.evaluate( () => { if ( window.RUSHGEAR.race ) window.RUSHGEAR.race.countdown = Math.min( window.RUSHGEAR.race.countdown, 0.3 ); } );
 await page.screenshot( { path: `${shots}/02-grid${trackId ? '-' + trackId : ''}.png` } );
 // drive deterministically: autopilot + synchronous simulation, then a few real frames
-await page.evaluate( ( secs ) => { const g = window.RUSHGEAR; g.autopilot = true; g.simulate( secs ); }, seconds );
+await page.evaluate( ( secs ) => { const g = window.RUSHGEAR; g.autopilot = true; g.audio.init(); g.simulate( secs ); }, seconds );
+console.log( 'audio:', await page.evaluate( () => JSON.stringify( { ready: window.RUSHGEAR.audio.ready, state: window.RUSHGEAR.audio.ctx?.state, voices: window.RUSHGEAR.audio.aiVoices.size, music: window.RUSHGEAR.audio.music?.playing } ) ) );
 if ( args.includes( '--nohud' ) ) await page.evaluate( () => { document.getElementById( 'hud' ).style.display = 'none'; } );
 await page.waitForTimeout( 1500 );
 const telemetry = await page.evaluate( () => { const g = window.RUSHGEAR; const v = g.playerCar?.vehicle; return v ? { paint: g.playerCar.uniforms.color.value.getHexString(), carId: g.playerCar.def.id, cars: g.cars.length, pos1: g.race?.standings[ 0 ]?.name, playerPos: g.race?.entryOf( v ).position, speedKmh: v.speedKmh.toFixed( 1 ), rpm: v.engine.rpm.toFixed( 0 ), gear: v.engine.gear, pos: v.position.toArray().map( ( x ) => x.toFixed( 1 ) ), s: v.proj.s.toFixed( 1 ), lateral: v.proj.lateral.toFixed( 2 ), onGround: v.wheels.map( ( w ) => w.onGround ), damage: v.damage.toFixed( 2 ), fps: g.hud.el.fps.textContent } : null; } );

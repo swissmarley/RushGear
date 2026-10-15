@@ -7,7 +7,10 @@
  *   • crowd, rain
  *   • dynamic music from a step sequencer (kick/snare/hats, bass, arp, pads) that follows race state
  */
+import { Vector3 } from 'three/webgpu';
 import { clamp, lerp, damp, makeRNG } from '../core/math.js';
+
+const _fwd = new Vector3(), _up = new Vector3();
 
 const SURFACE_KERB = 1, SURFACE_GRASS = 2, SURFACE_GRAVEL = 3, SURFACE_SAND = 4;
 
@@ -248,7 +251,10 @@ export class AudioEngine {
 		const L = this.listener;
 		if ( L.positionX ) {
 			L.positionX.setTargetAtTime( camera.position.x, t, 0.02 ); L.positionY.setTargetAtTime( camera.position.y, t, 0.02 ); L.positionZ.setTargetAtTime( camera.position.z, t, 0.02 );
-			const f = camera.getWorldDirection( this._fwd || ( this._fwd = { x: 0, y: 0, z: 0, set() {}, clone() {}, copy() {} } ) );
+			camera.getWorldDirection( _fwd );
+			_up.set( 0, 1, 0 ).applyQuaternion( camera.quaternion );
+			L.forwardX.setTargetAtTime( _fwd.x, t, 0.02 ); L.forwardY.setTargetAtTime( _fwd.y, t, 0.02 ); L.forwardZ.setTargetAtTime( _fwd.z, t, 0.02 );
+			L.upX.setTargetAtTime( _up.x, t, 0.02 ); L.upY.setTargetAtTime( _up.y, t, 0.02 ); L.upZ.setTargetAtTime( _up.z, t, 0.02 );
 		}
 		// player engine
 		const e = vehicle.engine;
