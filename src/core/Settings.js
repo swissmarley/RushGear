@@ -42,6 +42,7 @@ export class Settings {
 		this.volume = saved.volume ?? 0.8;
 		this.music = saved.music ?? 0.5;
 		this.aids = saved.aids ?? { abs: true, tc: true, autoGear: true };
+		this.difficulty = saved.difficulty ?? 'normal';
 		this.cameraMode = saved.cameraMode ?? 0;
 		this.adaptiveLevel = 0;   // 0 = full preset, higher = effects dropped by the adaptive controller
 		this.quality = this._compose();
@@ -58,7 +59,10 @@ export class Settings {
 	}
 
 	save() {
-		Storage.set( 'settings', { preset: this.preset, adaptive: this.adaptive, targetFps: this.targetFps, volume: this.volume, music: this.music, aids: this.aids, cameraMode: this.cameraMode } );
+		Storage.set( 'settings', { preset: this.preset, adaptive: this.adaptive, targetFps: this.targetFps, volume: this.volume, music: this.music, aids: this.aids, cameraMode: this.cameraMode, difficulty: this.difficulty } );
+	}
+	get aiDifficulty() { return { easy: 0.86, normal: 0.94, hard: 1.0 }[ this.difficulty ] ?? 0.94; }
+	_unused() {
 	}
 
 	setPreset( name ) {
@@ -96,6 +100,7 @@ export class Settings {
 	/** Feed per-frame timings; drop a level when the average frame time overshoots the target. */
 	recordFrame( ms ) {
 		if ( ! this.adaptive ) return;
+		if ( ms > 250 ) { this._frameTimes.length = 0; return; } // loading hitch, not a frame-rate signal
 		this._frameTimes.push( ms );
 		if ( this._frameTimes.length < 90 ) return;
 		const avg = this._frameTimes.reduce( ( a, b ) => a + b, 0 ) / this._frameTimes.length;

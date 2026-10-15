@@ -257,6 +257,11 @@ export class Sky {
 			const d2 = vec3( dir.x, max( dir.y, 0.0 ), dir.z ).toVar();
 			d2.assign( normalize( d2 ) );
 			let col = skyRadiance( d2, sunDir ).toVar();
+			// multiple-scattering stand-in: single scattering leaves the daytime horizon too orange,
+			// real skies whiten there. Blend toward a brighter neutral near the horizon by day.
+			const whiten = pow( oneMinus( saturate( dir.y ) ), 6.0 ).mul( saturate( sunDir.y.mul( 3.0 ) ) );
+			const lum = col.r.mul( 0.21 ).add( col.g.mul( 0.72 ) ).add( col.b.mul( 0.07 ) );
+			col.assign( mix( col, vec3( lum ).mul( vec3( 1.25, 1.3, 1.45 ) ), whiten.mul( 0.55 ) ) );
 			// sun disc with limb darkening
 			const cosS = dot( dir, sunDir );
 			const disc = smoothstep( 0.99985, 0.99995, cosS );

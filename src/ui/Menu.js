@@ -112,6 +112,7 @@ export class Menu {
 			<span>ABS</span>${seg( 'abs', [ { v: 'true', l: 'On' }, { v: 'false', l: 'Off' } ], String( s.aids.abs ) )}
 			<span>Traction control</span>${seg( 'tc', [ { v: 'true', l: 'On' }, { v: 'false', l: 'Off' } ], String( s.aids.tc ) )}
 			<span>Gearbox</span>${seg( 'autoGear', [ { v: 'true', l: 'Auto' }, { v: 'false', l: 'Manual' } ], String( s.aids.autoGear ) )}
+			<span>AI difficulty</span>${seg( 'difficulty', [ { v: 'easy', l: 'Easy' }, { v: 'normal', l: 'Normal' }, { v: 'hard', l: 'Hard' } ], s.difficulty )}
 			<span>Master volume</span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-k="volume">
 			<span>Music volume</span><input type="range" min="0" max="1" step="0.05" value="${s.music}" data-k="music">
 			</div>
@@ -125,6 +126,7 @@ export class Menu {
 				if ( k === 'preset' ) s.setPreset( v );
 				else if ( k === 'adaptive' ) { s.adaptive = v === 'true'; s.save(); }
 				else if ( k === 'targetFps' ) { s.targetFps = parseInt( v ); s.save(); }
+				else if ( k === 'difficulty' ) { s.difficulty = v; s.save(); }
 				else { s.aids[ k ] = v === 'true'; s.save(); this.game.applyAids(); }
 				return;
 			}

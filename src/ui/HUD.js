@@ -111,6 +111,7 @@ export class HUD {
 			// standings (throttled by content hash)
 			const rows = r.standings.slice( 0, 9 ).map( ( en ) => `<div class="${en.vehicle === v ? 'me' : ''}"><span>${en.position}</span><span>${en.name}</span><span>${en.gapText}</span></div>` ).join( '' );
 			if ( rows !== this._lastStandings ) { e.stand.innerHTML = rows; this._lastStandings = rows; }
+			e.stand.style.display = r.entries.length > 1 ? '' : 'none';
 		}
 		// minimap
 		if ( this.mapData && r ) this._drawMap( r, v );

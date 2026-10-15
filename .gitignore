@@ -4,4 +4,4 @@ dist
 *.log
 .DS_Store
 scratch/
-scratch-smoke.log
+scratch-*.log

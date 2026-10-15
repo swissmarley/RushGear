@@ -164,7 +164,7 @@ class Game {
 			const carDef = CARS[ ( i * 2 + 1 ) % CARS.length ];
 			const car = this.spawnCar( carDef.id, { name: p.name, isPlayer: false, id: i + 1, color: hexToLinear( p.color ), hex: p.color } );
 			const profile = this.line.profileFor( carDef, this.track.def.weather.rain );
-			car.ai = new AIDriver( car.vehicle, this.line, profile, p, { seed: 7 + i * 13, difficulty: cfg.difficulty ?? 1 } );
+			car.ai = new AIDriver( car.vehicle, this.line, profile, p, { seed: 7 + i * 13, difficulty: cfg.difficulty ?? this.settings.aiDifficulty } );
 			entries.push( { car, name: p.name, isPlayer: false, carName: carDef.name, color: p.color, ai: car.ai } );
 		}
 		for ( const c of this.cars ) if ( c.ai ) c.ai.setOthers( this.vehicles );
@@ -255,6 +255,7 @@ class Game {
 	repaintGarageCar() { this.garage.repaint(); }
 
 	onEscape() {
+		if ( this.state === 'menu' ) { if ( this.menu.current && ! this.menu.current.classList.contains( 'loading' ) ) this.menu.main( this.info ); return; }
 		if ( this.state === 'replay' ) return this.exitReplay();
 		if ( this.state === 'race' ) { if ( this.paused ) this.resume(); else this.pause(); }
 	}

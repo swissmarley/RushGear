@@ -44,6 +44,38 @@ if ( args.includes( '--garage' ) ) {
 	await page.evaluate( () => window.RUSHGEAR.menu.main( window.RUSHGEAR.info ) );
 	if ( args.includes( '--garage-only' ) ) { console.log( `${errors.length} console errors` ); for ( const e of errors.slice( 0, 10 ) ) console.log( ' ERR', e.slice( 0, 800 ) ); await browser.close(); await server.close(); process.exit( errors.length ? 1 : 0 ); }
 }
+const flow = opt( '--flow', null );
+if ( flow === 'champ' ) {
+	// championship: qualifying (time-limited) → results → standings → race 1 → results
+	await page.evaluate( () => window.RUSHGEAR.startChampionship( window.RUSHGEAR.menu.selection ) );
+	await page.waitForFunction( () => window.RUSHGEAR.state === 'race' && window.RUSHGEAR.race?.mode === 'qualifying' );
+	await page.evaluate( () => { const g = window.RUSHGEAR; g.autopilot = true; g.race.timeLimit = 40; g.simulate( 70 ); } );
+	await page.waitForFunction( () => window.RUSHGEAR.race?.finished, null, { timeout: 60000 } );
+	console.log( 'qualifying:', await page.evaluate( () => window.RUSHGEAR.race.standings.map( ( e ) => e.name + ' ' + e.gapText ).join( ' | ' ) ) );
+	await page.waitForTimeout( 800 );
+	await page.evaluate( () => window.RUSHGEAR.championshipContinue() );
+	await page.evaluate( () => window.RUSHGEAR.championshipNext() );
+	await page.waitForFunction( () => window.RUSHGEAR.state === 'race' && window.RUSHGEAR.race?.mode === 'race', null, { timeout: 120000 } );
+	await page.evaluate( () => { const g = window.RUSHGEAR; g.autopilot = true; g.race.laps = 1; for ( const e of g.race.entries ) {} g.simulate( 130 ); } );
+	console.log( 'race1 finished:', await page.evaluate( () => window.RUSHGEAR.race.finished ), await page.evaluate( () => window.RUSHGEAR.race.standings.slice( 0, 3 ).map( ( e ) => e.name + ' ' + e.gapText ).join( ' | ' ) ) );
+	await page.waitForTimeout( 3000 );
+	await page.evaluate( () => window.RUSHGEAR.championshipContinue() );
+	console.log( 'table:', await page.evaluate( () => window.RUSHGEAR.championship.table().slice( 0, 3 ).map( ( r ) => r.name + ' ' + r.points ).join( ' | ' ) ) );
+	await page.screenshot( { path: `${shots}/flow-champ.png` } );
+} else if ( flow === 'tt' ) {
+	await page.evaluate( () => window.RUSHGEAR.startTimeTrial( window.RUSHGEAR.menu.selection ) );
+	await page.waitForFunction( () => window.RUSHGEAR.state === 'race' && window.RUSHGEAR.race?.mode === 'timetrial' );
+	await page.evaluate( () => { const g = window.RUSHGEAR; g.autopilot = true; g.simulate( 200 ); } );
+	console.log( 'timetrial:', await page.evaluate( () => { const g = window.RUSHGEAR; const e = g.race.entryOf( g.playerCar.vehicle ); return JSON.stringify( { laps: e.lapsDone, best: e.bestLap, ghost: !! g.ghostData, ghostLap: g.ghostData?.lapTime, ghostFrames: g.ghostData?.frames.length, record: g.race.record } ); } ) );
+	await page.evaluate( () => window.RUSHGEAR.startReplay() );
+	await page.waitForTimeout( 1500 );
+	console.log( 'replay:', await page.evaluate( () => JSON.stringify( { state: window.RUSHGEAR.state, t: window.RUSHGEAR.replay?.time, dur: window.RUSHGEAR.replay?.duration } ) ) );
+	await page.screenshot( { path: `${shots}/flow-replay.png` } );
+	await page.evaluate( () => window.RUSHGEAR.exitReplay() );
+	await page.waitForTimeout( 300 );
+	console.log( 'after replay state:', await page.evaluate( () => window.RUSHGEAR.state ) );
+}
+if ( flow ) { console.log( `${errors.length} console errors` ); for ( const e of errors.slice( 0, 10 ) ) console.log( ' ERR', e.slice( 0, 900 ) ); await browser.close(); await server.close(); process.exit( errors.length ? 1 : 0 ); }
 const trackId = opt( '--track', null ), carId = opt( '--car', null );
 await page.evaluate( ( [ t, c ] ) => { const g = window.RUSHGEAR; if ( t ) g.menu.selection.trackId = t; if ( c ) g.menu.selection.carId = c; g.startQuickRace( g.menu.selection ); }, [ trackId, carId ] );
 await page.waitForFunction( () => window.RUSHGEAR.state === 'race', null, { timeout: 120000 } ).catch( () => console.log( 'race not reached' ) );
