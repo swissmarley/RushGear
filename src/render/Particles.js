@@ -27,8 +27,8 @@ export class ParticlePool {
 		this.a0 = new Float32Array( count * 4 ); // pos.xyz, spawnTime
 		this.a1 = new Float32Array( count * 4 ); // vel.xyz, life
 		this.a2 = new Float32Array( count * 4 ); // size, seed, tint, groundY
-		this.a0.fill( - 1e5 ); // spawn time far in the past → dead
-		for ( let i = 0; i < count; i ++ ) this.a0[ i * 4 + 3 ] = - 1e5;
+		// dead particles: spawned far in the past with a finite life (never divide by zero → no NaNs)
+		for ( let i = 0; i < count; i ++ ) { this.a0[ i * 4 + 3 ] = - 1e5; this.a1[ i * 4 + 3 ] = 1; this.a2[ i * 4 ] = 0; this.a2[ i * 4 + 3 ] = - 1e4; }
 		this.attr0 = new InstancedBufferAttribute( this.a0, 4 ); this.attr0.setUsage( 35048 );
 		this.attr1 = new InstancedBufferAttribute( this.a1, 4 ); this.attr1.setUsage( 35048 );
 		this.attr2 = new InstancedBufferAttribute( this.a2, 4 ); this.attr2.setUsage( 35048 );
@@ -52,7 +52,7 @@ export class ParticlePool {
 		mat.transparent = true; mat.depthWrite = false; mat.blending = c.blending; mat.side = DoubleSide; mat.fog = false;
 		const p0 = instancedBufferAttribute( this.attr0 ), p1 = instancedBufferAttribute( this.attr1 ), p2 = instancedBufferAttribute( this.attr2 );
 		const age = U.time.sub( p0.w ).toVar();
-		const life = p1.w;
+		const life = max( p1.w, 0.01 );
 		const t = saturate( age.div( life ) ).toVar();
 		const alive = step( 0.0, age ).mul( step( age, life ) );
 		const k = float( c.drag );
@@ -71,8 +71,8 @@ export class ParticlePool {
 		let offset;
 		if ( this.kind === 'spark' || this.kind === 'debris' ) {
 			const vel = p1.xyz.mul( exp( age.mul( k ).negate() ) ).add( vec3( 0.0, float( c.gravity ).negate().mul( age ), 0.0 ) );
-			const dir = normalize( vel.add( vec3( 0.0, 0.0001, 0.0 ) ) );
-			const side = normalize( vec3( dir.z, 0.0, dir.x.negate() ).add( 0.0001 ) );
+			const dir = normalize( vel.add( vec3( 0.0, 0.001, 0.0 ) ) );
+			const side = normalize( vec3( dir.z, 0.0, dir.x.negate() ).add( vec3( 0.001, 0.0, 0.0 ) ) );
 			offset = dir.mul( positionLocal.y.mul( size ).mul( 4.0 ) ).add( side.mul( positionLocal.x.mul( size ) ) );
 		} else offset = right.mul( cx.mul( size ) ).add( up.mul( cy.mul( size ) ) );
 		mat.positionNode = center.add( offset );

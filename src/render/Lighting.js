@@ -33,6 +33,7 @@ export class Lighting {
 		this.lampSources = [];
 		this.exposure = 1;
 		this.exposureTarget = 1;
+		this.envScale = 1;
 	}
 
 	_setupShadows( q ) {
@@ -68,7 +69,12 @@ export class Lighting {
 		// hemisphere fill from the sky model (IBL carries most of it when the env map is live)
 		this.hemi.color.copy( m.zenith ).multiplyScalar( 1.2 ).add( new Color( 0.02, 0.02, 0.03 ) );
 		this.hemi.groundColor.copy( U.fogColor.value ).multiplyScalar( 0.35 );
-		this.hemi.intensity = 0.25 + 0.3 * ( 1 - m.night );
+		this.hemi.intensity = ( 0.25 + 0.3 * ( 1 - m.night ) ) * this.envScale;
+		// tunnels: the sky-lit environment must not leak inside, so dim IBL/hemisphere when the
+		// camera is underground (smoothly, as the eye adapts)
+		const inTunnel = playerVehicle?.proj.tunnel ? 1 : 0;
+		this.envScale = damp( this.envScale, inTunnel ? 0.12 : 1, 3, dt );
+		this.scene.environmentIntensity = this.envScale;
 		if ( this.csm && this.csm.camera ) this.csm.updateFrustums();
 
 		// --- point light pool → nearest lamps (only when it is dark enough to matter)
@@ -114,10 +120,14 @@ export class Lighting {
 		for ( ; si < this.spotPool.length; si ++ ) this.spotPool[ si ].intensity = 0;
 
 		// --- auto exposure: a light meter driven by the sky model, tunnels and night
+		// estimate the average scene luminance: sunlit ground + sky ambient (albedo ≈ 0.3)
 		const zenithLum = m.zenith.r * 0.21 + m.zenith.g * 0.72 + m.zenith.b * 0.07;
-		const sunUp = clamp( m.sunDir.y / 0.35, 0, 1 );
-		let target = 1.0 / ( 0.22 + zenithLum * 0.9 + sunUp * 0.9 );
-		target = clamp( target, 0.7, 3.2 );
+		const sunLum = m.sunColor.r * 0.21 + m.sunColor.g * 0.72 + m.sunColor.b * 0.07;
+		const est = m.sunIntensity * sunLum * 0.3 * Math.max( 0.15, m.sunDir.y ) + zenithLum * 0.5 + 0.015;
+		let target = 0.5 / est;
+		// artificial light dominates at night (lamps, neon, headlights) — don't crank the gain
+		const nightCap = 1.1 + 0.6 * ( 1 - U.neon.value );
+		target = clamp( target, 0.6, m.night > 0.5 ? nightCap : 2.4 );
 		if ( playerVehicle?.proj.tunnel ) target *= 1.8;
 		this.exposureTarget = target;
 		// eyes adapt faster to brightening than to darkening

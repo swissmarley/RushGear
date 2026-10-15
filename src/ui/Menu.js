@@ -152,12 +152,13 @@ export class Menu {
 	}
 
 	results( race, championship ) {
-		const rows = race.standings.map( ( en ) => `<tr class="${en.isPlayer ? 'me' : ''}"><td>${en.position}</td><td>${en.name}</td><td>${en.carName}</td><td>${formatTime( en.bestLap )}</td><td>${en.finished ? ( en.position === 1 ? formatTime( en.totalTime ) : en.gapText ) : 'DNF'}</td>${championship ? `<td>${championship.pointsFor( en.position )}</td>` : ''}</tr>` ).join( '' );
+		const showPts = championship && race.mode === 'race';
+		const rows = race.standings.map( ( en ) => `<tr class="${en.isPlayer ? 'me' : ''}"><td>${en.position}</td><td>${en.name}</td><td>${en.carName}</td><td>${formatTime( en.bestLap )}</td><td>${race.mode === 'race' ? ( en.finished ? ( en.position === 1 ? formatTime( en.totalTime ) : en.gapText ) : 'DNF' ) : en.gapText}</td>${showPts ? `<td>${championship.pointsFor( en.position )}</td>` : ''}</tr>` ).join( '' );
 		const title = race.mode === 'qualifying' ? 'Qualifying' : race.mode === 'timetrial' ? 'Time Trial' : 'Race result';
 		const me = race.standings.find( ( e ) => e.isPlayer );
 		const el = h( `<div class="screen"><div class="panel results"><h2>${title} · ${race.track.name}</h2>
 			<div style="font-size:40px;font-weight:900;font-style:italic;margin-bottom:12px">${me ? ordinal( me.position ) : ''} ${me && me.position === 1 && race.mode === 'race' ? '· Winner!' : ''}</div>
-			<table><tr><th>#</th><th>Driver</th><th>Car</th><th>Best lap</th><th>${race.mode === 'race' ? 'Gap' : 'Time'}</th>${championship ? '<th>Pts</th>' : ''}</tr>${rows}</table>
+			<table><tr><th>#</th><th>Driver</th><th>Car</th><th>Best lap</th><th>${race.mode === 'race' ? 'Gap' : 'Gap'}</th>${showPts ? '<th>Pts</th>' : ''}</tr>${rows}</table>
 			<div class="footer"><button class="btn" data-a="replay">Replay</button>${championship ? '<button class="btn" data-a="next">Continue</button>' : '<button class="btn" data-a="restart">Race again</button>'}<button class="btn" data-a="menu">Menu</button></div></div></div>` );
 		el.addEventListener( 'click', ( e ) => {
 			const a = e.target.closest( 'button' )?.dataset.a;

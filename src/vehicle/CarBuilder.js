@@ -165,9 +165,11 @@ export class CarBuilder {
 		const wheels = [];
 		const tyreGeo = new CylinderGeometry( wheelR, wheelR, def.wheelWidth, 28, 1 );
 		const rimGeo = new CylinderGeometry( wheelR * 0.68, wheelR * 0.64, def.wheelWidth * 0.9, 24, 1 );
+		rimGeo.computeTangents();
 		const spokeGeo = new BoxGeometry( def.wheelWidth * 0.5, wheelR * 1.3, wheelR * 0.14 );
 		const hubGeo = new CylinderGeometry( wheelR * 0.18, wheelR * 0.18, def.wheelWidth * 0.98, 12 );
 		const discGeo = new CylinderGeometry( wheelR * 0.56, wheelR * 0.56, 0.03, 24 );
+		discGeo.computeTangents();
 		const calGeo = new BoxGeometry( 0.08, wheelR * 0.5, 0.12 );
 		const axles = [ { z: axleZ[ 0 ], tw: def.trackF }, { z: axleZ[ 1 ], tw: def.trackR } ];
 		let wi = 0;

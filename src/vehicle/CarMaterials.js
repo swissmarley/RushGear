@@ -104,13 +104,13 @@ export function makeLightMaterial( cu, kind ) {
 	if ( kind === 'head' ) {
 		const lensCells = fract( p.y.mul( 60.0 ) );
 		mat.colorNode = vec3( 0.75, 0.78, 0.8 ).mul( lensCells.mul( 0.15 ).add( 0.85 ) );
-		mat.emissiveNode = vec3( 1.0, 0.96, 0.88 ).mul( cu.head.mul( 30.0 ).add( 0.05 ) );
+		mat.emissiveNode = vec3( 1.0, 0.96, 0.88 ).mul( cu.head.mul( 12.0 ).add( 0.05 ) );
 		mat.roughnessNode = float( 0.08 );
 		mat.metalnessNode = float( 0.6 );
 	} else if ( kind === 'tail' ) {
 		const ribs = step( 0.5, fract( p.x.mul( 80.0 ) ) ).mul( 0.1 ).add( 0.9 );
 		mat.colorNode = vec3( 0.5, 0.02, 0.02 ).mul( ribs );
-		mat.emissiveNode = vec3( 1.0, 0.03, 0.02 ).mul( cu.head.mul( 3.0 ).add( cu.brake.mul( 14.0 ) ).add( 0.03 ) );
+		mat.emissiveNode = vec3( 1.0, 0.03, 0.02 ).mul( cu.head.mul( 2.0 ).add( cu.brake.mul( 6.0 ) ).add( 0.03 ) );
 		mat.roughnessNode = float( 0.12 );
 		mat.metalnessNode = float( 0.3 );
 	} else { // reverse
@@ -136,22 +136,29 @@ export function makeTyreMaterial() {
 }
 
 export function makeRimMaterial( tint = [ 0.75, 0.75, 0.78 ] ) {
-	const mat = new MeshStandardNodeMaterial();
-	mat.colorNode = vec3( ...tint );
+	// brushed alloy: anisotropic highlights stretched around the rim
+	const mat = new MeshPhysicalNodeMaterial();
+	const p = positionLocal;
+	const brush = fract( length( p.yz ).mul( 400.0 ) ).mul( 0.06 ).add( 0.94 );
+	mat.colorNode = vec3( ...tint ).mul( brush );
 	mat.metalnessNode = float( 0.95 );
-	mat.roughnessNode = float( 0.28 );
+	mat.roughnessNode = float( 0.32 );
+	mat.anisotropyNode = vec2( 0.85, 0.0 );
+	mat.clearcoatNode = float( 0.6 );
+	mat.clearcoatRoughnessNode = float( 0.15 );
 	mat.name = 'rim';
 	return mat;
 }
 
 export function makeBrakeDiscMaterial() {
-	const mat = new MeshStandardNodeMaterial();
+	const mat = new MeshPhysicalNodeMaterial();
 	const p = positionLocal;
-	const r = length( p.xy );
+	const r = length( p.xz );
 	const rings = fract( r.mul( 120.0 ) ).mul( 0.1 ).add( 0.9 );
 	mat.colorNode = vec3( 0.45, 0.45, 0.47 ).mul( rings );
 	mat.metalnessNode = float( 0.9 );
 	mat.roughnessNode = float( 0.45 );
+	mat.anisotropyNode = vec2( 0.9, 0.0 ); // radial machining marks
 	return mat;
 }
 

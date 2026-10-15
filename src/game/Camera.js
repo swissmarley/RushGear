@@ -56,8 +56,8 @@ export class RaceCamera {
 			if ( velDir.lengthSq() > 0.5 ) velDir.normalize(); else { velDir.copy( _f ); blend = 0; }
 			const head = _p.copy( _f ); head.y = 0; head.normalize().lerp( velDir, blend ).normalize();
 			this.headingSmooth.lerp( head, 1 - Math.exp( - 6 * dt ) ).normalize();
-			const dist = ( far ? 7.2 : 5.6 ) + speed * 0.02;
-			const height = ( far ? 2.4 : 1.7 ) + speed * 0.004;
+			const dist = ( far ? 8.0 : 6.4 ) + speed * 0.03;
+			const height = ( far ? 2.6 : 1.9 ) + speed * 0.005;
 			const desired = _t.copy( carPos ).addScaledVector( this.headingSmooth, - dist );
 			desired.y = carPos.y + height;
 			if ( ! this.initialised ) { this.pos.copy( desired ); this.initialised = true; }

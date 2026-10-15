@@ -143,11 +143,11 @@ export class GameRenderer {
 		this.postCamera = camera;
 	}
 
-	render( camera, playerPos = null, speed = 0 ) {
+	render( camera, playerPos = null, speed = 0, dt = 1 / 60 ) {
 		this.sky.followCamera( camera );
 		if ( this.usePost ) {
 			if ( ! this.post || this.postCamera !== camera ) this.setupPost( camera );
-			this.post.update( camera, U.sunDir.value, playerPos, speed );
+			this.post.update( camera, U.sunDir.value, playerPos, speed, dt );
 			this.post.render();
 		} else this.renderer.render( this.scene, camera );
 	}

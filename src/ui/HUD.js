@@ -88,7 +88,7 @@ export class HUD {
 			const me = r.entryOf( v );
 			e.pos.textContent = String( me.position );
 			e.posof.textContent = '/' + r.entries.length;
-			e.lap.textContent = r.mode === 'timetrial' ? `Lap ${me.lap}` : `Lap ${Math.min( me.lap, r.laps )} / ${r.laps}`;
+			e.lap.textContent = r.mode === 'timetrial' ? `Lap ${me.lap}` : r.mode === 'qualifying' ? `Qualifying · ${formatTime( Math.max( 0, r.timeLimit - r.time ) )}` : `Lap ${Math.min( me.lap, r.laps )} / ${r.laps}`;
 			e.cur.textContent = formatTime( me.currentLapTime );
 			e.last.textContent = formatTime( me.lastLap );
 			e.best.textContent = formatTime( me.bestLap );

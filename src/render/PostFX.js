@@ -30,11 +30,11 @@ export class PostFX {
 			sunScreen: uniform( new Vector2( 0.5, 0.5 ) ),
 			sunVisible: uniform( 0 ),
 			focusDistance: uniform( 8 ),
-			bokeh: uniform( 0.9 ),
+			bokeh: uniform( 0.7 ),
 			motionStrength: uniform( 1 ),
 			lift: uniform( new Vector3( 0, 0, 0 ) ), gamma: uniform( new Vector3( 1, 1, 1 ) ), gain: uniform( new Vector3( 1, 1, 1 ) ),
 			saturation: uniform( 1.1 ), contrast: uniform( 1.05 ), grain: uniform( 0.035 ), vignette: uniform( 0.35 ),
-			bloomStrength: uniform( 0.35 )
+			bloomStrength: uniform( 0.22 )
 		};
 		this.pipeline = null;
 		this.build( quality );
@@ -146,7 +146,7 @@ export class PostFX {
 		// --- depth of field (focus follows the player car)
 		if ( q.dof ) {
 			// focalLength = depth range that stays sharp (m); keep DOF subtle for a racing game
-			col = dof( vec4( col, 1.0 ), viewZ, this.u.focusDistance, float( 32.0 ), this.u.bokeh ).rgb;
+			col = dof( vec4( col, 1.0 ), viewZ, this.u.focusDistance, float( 90.0 ), this.u.bokeh ).rgb;
 		}
 
 		// --- velocity motion blur
@@ -197,7 +197,7 @@ export class PostFX {
 	}
 
 	/** Per-frame data: sun screen position, focus distance, motion blur scaling. */
-	update( camera, sunDir, playerPos, speed ) {
+	update( camera, sunDir, playerPos, speed, dt = 1 / 60 ) {
 		_v.copy( sunDir ).multiplyScalar( 1000 ).add( camera.position ).project( camera );
 		const inFront = _v.z < 1 && sunDir.dot( _v.set( 0, 0, - 1 ).applyQuaternion( camera.quaternion ) ) > 0;
 		_v.copy( sunDir ).multiplyScalar( 1000 ).add( camera.position ).project( camera );
@@ -205,7 +205,8 @@ export class PostFX {
 		const edge = Math.max( Math.abs( _v.x ), Math.abs( _v.y ) );
 		this.u.sunVisible.value = inFront && sunDir.y > - 0.05 ? Math.max( 0, 1 - Math.max( 0, edge - 0.9 ) * 2.5 ) * U.sunIntensity.value / 3.6 : 0;
 		if ( playerPos ) this.u.focusDistance.value = camera.position.distanceTo( playerPos ) + 1.5;
-		this.u.motionStrength.value = Math.min( 1, speed / 25 );
+		// velocities are per rendered frame: normalise to a 60 Hz shutter so low frame rates don't smear
+		this.u.motionStrength.value = Math.min( 1, speed / 25 ) * Math.min( 1, ( 1 / 60 ) / Math.max( dt, 1 / 240 ) );
 	}
 
 	render() { this.pipeline.render(); }

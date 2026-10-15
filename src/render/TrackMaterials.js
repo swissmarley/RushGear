@@ -167,7 +167,7 @@ export function makeTunnelMaterial() {
 export function makeLampMaterial() {
 	const mat = new MeshStandardNodeMaterial();
 	mat.colorNode = vec3( 0.9, 0.9, 0.85 );
-	mat.emissiveNode = vec3( 1.0, 0.95, 0.8 ).mul( 12.0 );
+	mat.emissiveNode = vec3( 1.0, 0.95, 0.8 ).mul( 5.0 );
 	mat.roughnessNode = float( 0.3 );
 	return mat;
 }

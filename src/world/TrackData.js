@@ -77,7 +77,7 @@ export const TRACKS = [
 		name: 'Mesa Verde',
 		location: 'High desert, sunset',
 		biome: 'desert',
-		timeOfDay: 19.2,
+		timeOfDay: 18.45,
 		dayRate: 1 / 160,
 		weather: { rain: 0, cloud: 0.15, temperature: 38 },
 		laps: 3,

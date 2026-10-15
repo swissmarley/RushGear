@@ -279,8 +279,7 @@ class Game {
 			if ( this.state !== 'race' || ! this.race?.finished ) return;
 			if ( this.championship ) {
 				this.championship.submit( this.race );
-				if ( this.race.mode === 'qualifying' ) this.menu.results( this.race, null );
-				else this.menu.results( this.race, this.championship );
+				this.menu.results( this.race, this.championship );
 			} else this.menu.results( this.race, null );
 		}, this.race?.mode === 'race' ? 2500 : 300 );
 	}
@@ -417,7 +416,7 @@ class Game {
 		this.gfx.updateLighting( dt, this.cam.camera, this.cars, pc?.vehicle );
 		this.hud.update( { vehicle: pc.vehicle, race: this.race, backend: this.gfx.backend, quality: this.settings.quality.preset + ( this.settings.adaptiveLevel ? ` -${this.settings.adaptiveLevel}` : '' ) }, dt );
 		this.audio.update( dt, this.paused ? null : pc.vehicle, this.cam.camera, this.cars, this.race, { wetness: U.wetness.value, rain: U.rain.value } );
-		this.gfx.render( this.cam.camera, pc?.root.position, pc?.vehicle.speed || 0 );
+		this.gfx.render( this.cam.camera, pc?.root.position, pc?.vehicle.speed || 0, dt );
 	}
 
 	renderReplay( dt ) {

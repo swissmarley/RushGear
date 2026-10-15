@@ -233,14 +233,14 @@ function buildingMaterial( neon = false ) {
 	const glassCol = vec3( 0.05, 0.08, 0.1 );
 	mat.colorNode = mix( base, glassCol, win );
 	const warm = vec3( 1.0, 0.85, 0.6 ), cool = vec3( 0.7, 0.85, 1.0 );
-	let emissive = mix( warm, cool, step( 0.7, seed ) ).mul( lit ).mul( seed.mul( 2.0 ).add( 1.0 ) );
+	let emissive = mix( warm, cool, step( 0.7, seed ) ).mul( lit ).mul( seed.mul( 0.8 ).add( 0.5 ) );
 	if ( neon ) {
 		// neon strips along the roof edge and at street level, hue per building
 		const hueSeed = hash( floor( p.x.mul( 0.02 ) ).add( floor( p.z.mul( 0.02 ) ).mul( 7.0 ) ) );
 		const neonCol = vec3( sin( hueSeed.mul( 6.28 ) ).mul( 0.5 ).add( 0.5 ), sin( hueSeed.mul( 6.28 ).add( 2.1 ) ).mul( 0.5 ).add( 0.5 ), sin( hueSeed.mul( 6.28 ).add( 4.2 ) ).mul( 0.5 ).add( 0.5 ) ).pow( 0.6 );
 		const bandY = smoothstep( 0.35, 0.3, abs( fract( p.y.div( 12.0 ) ).sub( 0.5 ) ) ).mul( step( 0.9, fract( p.y.div( 12.0 ) ).add( 0.5 ) ) );
 		const strip = step( 0.93, fract( p.y.div( 12.0 ) ) ).mul( isWall ).add( step( 0.5, fy ).mul( step( fy, 0.56 ) ).mul( step( 4.0, p.y ).mul( step( p.y, 7.0 ) ) ).mul( isWall ) );
-		emissive = emissive.add( neonCol.mul( strip.mul( 6.0 ) ).mul( U.neon ) );
+		emissive = emissive.add( neonCol.mul( strip.mul( 2.5 ) ).mul( U.neon ) );
 	}
 	mat.emissiveNode = emissive;
 	mat.roughnessNode = mix( float( 0.8 ), float( 0.15 ), win );
@@ -265,7 +265,7 @@ function boardMaterial() {
 function lampHeadMaterial() {
 	const mat = new MeshStandardNodeMaterial();
 	mat.colorNode = vec3( 0.9 );
-	mat.emissiveNode = vec3( 1.0, 0.9, 0.7 ).mul( U.night.mul( 25.0 ).add( 0.2 ) );
+	mat.emissiveNode = vec3( 1.0, 0.9, 0.7 ).mul( U.night.mul( 6.0 ).add( 0.2 ) );
 	return mat;
 }
 function tyreStackMaterial() {
