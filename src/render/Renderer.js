@@ -3,9 +3,12 @@
  * sun + hemisphere lighting and a simple gradient sky. Day/night sky, CSM and the
  * post-processing chain are layered on in later systems (Sky.js, Lighting.js, PostFX.js).
  */
-import { WebGPURenderer, Scene, Color, DirectionalLight, HemisphereLight, ACESFilmicToneMapping, PCFSoftShadowMap, SRGBColorSpace, Mesh, SphereGeometry, MeshBasicNodeMaterial, BackSide, Vector3 } from 'three/webgpu';
-import { mix, smoothstep, normalWorld, vec3, positionWorld, normalize, cameraPosition, max, float, pow } from 'three/tsl';
+import { WebGPURenderer, Scene, Color, ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, Vector3 } from 'three/webgpu';
 import { U } from './Uniforms.js';
+import { Sky } from './Sky.js';
+const clamp01 = ( v ) => Math.min( 1, Math.max( 0, v ) );
+import { Lighting } from './Lighting.js';
+import { PostFX } from './PostFX.js';
 
 /**
  * Compatibility shim: three passes the identity swizzle ('rgba') in every texture view
@@ -30,6 +33,7 @@ export class GameRenderer {
 		this.scene = new Scene();
 		this.scene.background = new Color( 0x6b8fc7 );
 		this.backend = 'unknown';
+		this.usePost = true;
 	}
 
 	async init() {
@@ -41,10 +45,9 @@ export class GameRenderer {
 		r.toneMappingExposure = 1.0;
 		r.outputColorSpace = SRGBColorSpace;
 		r.shadowMap.enabled = true;
-		r.shadowMap.type = PCFSoftShadowMap;
+		r.shadowMap.type = PCFShadowMap;
 		this.applyQuality( this.settings.quality );
 		this._buildLights();
-		this._buildSky();
 		window.addEventListener( 'resize', () => this.resize() );
 		this.resize();
 	}
@@ -53,6 +56,8 @@ export class GameRenderer {
 		const dpr = Math.min( window.devicePixelRatio || 1, q.maxPixelRatio );
 		this.renderer.setPixelRatio( dpr );
 		this.resize();
+		if ( this.lighting ) this.lighting.applyQuality( q );
+		if ( this.post ) this.setupPost( this.postCamera );
 	}
 
 	resize() {
@@ -62,79 +67,88 @@ export class GameRenderer {
 	}
 
 	_buildLights() {
-		const sun = new DirectionalLight( 0xffffff, 3.0 );
-		sun.position.set( 200, 300, 100 );
-		sun.castShadow = true;
-		const sh = sun.shadow;
-		sh.mapSize.set( 2048, 2048 );
-		sh.camera.near = 1; sh.camera.far = 600;
-		sh.camera.left = - 90; sh.camera.right = 90; sh.camera.top = 90; sh.camera.bottom = - 90;
-		sh.bias = - 0.0005; sh.normalBias = 0.05;
-		this.sun = sun;
-		this.scene.add( sun ); this.scene.add( sun.target );
-		this.hemi = new HemisphereLight( 0x9fbfff, 0x506030, 0.8 );
-		this.scene.add( this.hemi );
+		this.sky = new Sky( { steps: this.settings.quality.preset === 'low' ? 4 : 6, lightSteps: 3, envSize: 128 } );
+		this.scene.add( this.sky.dome );
+		this.lighting = new Lighting( this.scene, this.settings.quality );
+		this.scene.environment = this.sky.envRT.texture;
+		this.scene.environmentIntensity = 1.0;
+		this.envFrame = 0;
+		this.hour = 12;
+		this.dayRate = 0;
+		this.weather = { rain: 0, cloud: 0.3 };
+		this.sky.update( this.hour, this.weather );
 	}
 
-	_buildSky() {
-		// Placeholder gradient dome (replaced by the physically based sky in Sky.js)
-		const mat = new MeshBasicNodeMaterial();
-		const dir = normalize( positionWorld.sub( cameraPosition ) );
-		const h = dir.y;
-		const sunAmount = pow( max( dir.dot( U.sunDir ), 0.0 ), 48.0 );
-		mat.colorNode = mix( U.skyHorizon, U.skyZenith, smoothstep( - 0.05, 0.5, h ) ).add( U.sunColor.mul( sunAmount ).mul( 0.6 ) );
-		mat.side = BackSide;
-		mat.depthWrite = false;
-		mat.fog = false;
-		const dome = new Mesh( new SphereGeometry( 5000, 32, 16 ), mat );
-		dome.name = 'skydome';
-		dome.frustumCulled = false;
-		dome.renderOrder = - 100;
-		this.skyDome = dome;
-		this.scene.add( dome );
-	}
+	_buildSky() {}
 
-	/**
-	 * Simple time-of-day lighting for a track (sun direction/colour, sky tint, night & wetness
-	 * uniforms). Replaced by the physically based Sky system in a later iteration.
-	 */
+	/** Per-track time of day, weather and fog. */
 	setEnvironment( track ) {
 		const def = track.def, biome = track.biome;
-		const hour = def.timeOfDay;
-		const elev = Math.sin( ( hour - 6 ) / 12 * Math.PI ) * 1.1;           // crude solar elevation
-		const az = ( hour - 12 ) / 12 * Math.PI;
-		const dir = new Vector3( Math.sin( az ) * Math.cos( elev ), Math.max( elev, - 0.2 ), Math.cos( az ) * Math.cos( elev ) * 0.6 ).normalize();
-		U.sunDir.value.copy( dir );
-		const day = Math.max( 0, Math.min( 1, ( dir.y + 0.05 ) / 0.3 ) );
-		const warm = Math.max( 0, 1 - Math.abs( dir.y ) / 0.35 );
-		U.sunColor.value.setRGB( 1.0, 0.95 - warm * 0.45, 0.85 - warm * 0.65 );
-		U.night.value = 1 - day;
-		U.neon.value = ( 1 - day ) * ( biome.scenery === 'city' ? 1 : 0.3 );
+		this.hour = def.timeOfDay;
+		this.dayRate = def.dayRate ?? 0;
+		this.weather = { ...def.weather };
 		U.rain.value = def.weather.rain; U.wetness.value = def.weather.rain;
 		U.heat.value = biome.heat ? 1 : 0;
 		const f = biome.fog;
-		U.fogColor.value.setRGB( ...f.color ).multiplyScalar( 0.3 + 0.7 * day );
+		this.fogBase = new Color( ...f.color );
 		U.fogDensity.value = f.density; U.fogHeight.value = f.height;
-		U.skyZenith.value.setRGB( 0.18, 0.38, 0.85 ).multiplyScalar( 0.05 + 0.95 * day ).lerp( new Color( 0.6, 0.3, 0.2 ), warm * 0.4 );
-		U.skyHorizon.value.setRGB( 0.72, 0.8, 0.92 ).multiplyScalar( 0.08 + 0.92 * day ).lerp( new Color( 1.0, 0.55, 0.3 ), warm * 0.7 );
-		this.sun.color.copy( U.sunColor.value );
-		this.sun.intensity = 3.2 * Math.max( 0.03, Math.min( 1, dir.y / 0.4 ) );
-		this.hemi.intensity = 0.15 + 0.7 * day;
-		this.hemi.color.copy( U.skyZenith.value ).multiplyScalar( 1.5 );
-		this.scene.background = null;
-		this._sunOffset = dir.clone().multiplyScalar( 220 );
+		this.biome = biome;
+		this.post?.setGrade( biome.grade );
+		this.sky.update( this.hour, this.weather );
+		this._updateDerived();
+		this.lighting.setLampSources( [] );
+		this.envFrame = 0;
 	}
 
-	/** Keep the shadow frustum centred around the player each frame. */
-	updateShadowTarget( target ) {
-		const s = this.sun;
-		s.target.position.copy( target );
-		s.position.copy( target ).add( this._sunOffset || ( this._sunOffset = new Vector3( 120, 180, 60 ) ) );
-		s.target.updateMatrixWorld();
+	setLampSources( list ) { this.lighting.setLampSources( list ); }
+
+	_updateDerived() {
+		const m = this.sky.model;
+		const day = 1 - m.night;
+		// fog takes the horizon colour, darkened at night
+		U.fogColor.value.copy( m.horizon ).lerp( this.fogBase || m.horizon, 0.35 ).multiplyScalar( 0.15 + 0.85 * day );
+		U.neon.value = ( this.biome?.scenery === 'city' ? 1 : 0.35 ) * clamp01( m.night * 1.4 );
 	}
 
-	render( camera ) {
-		this.skyDome.position.copy( camera.position );
-		this.renderer.render( this.scene, camera );
+	/** Advance the day/night cycle, weather and all lighting. */
+	updateLighting( dt, camera, cars, playerVehicle ) {
+		if ( this.dayRate ) this.hour = ( this.hour + dt * this.dayRate ) % 24;
+		// weather: rain gusts around the track's base intensity; the road soaks and dries slowly
+		const base = this.weather.rain || 0;
+		const gust = base > 0 ? base * ( 0.8 + 0.2 * Math.sin( this.hour * 900 + Math.sin( this.hour * 2300 ) * 2 ) ) : 0;
+		U.rain.value = gust;
+		const wet = U.wetness.value;
+		U.wetness.value = gust > wet ? wet + ( gust - wet ) * Math.min( 1, dt / 25 ) : wet + ( gust - wet ) * Math.min( 1, dt / 140 );
+		U.rainLocal.value = gust * ( playerVehicle?.proj.tunnel ? 0 : 1 );
+		this.sky.update( this.hour, this.weather );
+		this._updateDerived();
+		this.lighting.update( dt, this.sky, camera, cars, playerVehicle );
+		// environment capture (PMREM) — spread out according to the quality budget
+		const every = ( this.settings.quality.envUpdate || 1 ) * 6;
+		if ( this.envFrame % every === 0 ) this.sky.captureEnvironment( this.renderer );
+		this.envFrame ++;
+		this.renderer.toneMappingExposure = U.exposure.value;
+	}
+
+	applyLightingQuality( q ) { this.lighting.applyQuality( q ); }
+
+	/** Deprecated shim: shadows now follow the camera inside Lighting. */
+	updateShadowTarget() {}
+
+	/** Build (or rebuild) the post chain for a camera. */
+	setupPost( camera ) {
+		if ( this.post ) this.post.dispose();
+		this.post = new PostFX( this.renderer, this.scene, camera, this.settings.quality );
+		if ( this.biome ) this.post.setGrade( this.biome.grade );
+		this.postCamera = camera;
+	}
+
+	render( camera, playerPos = null, speed = 0 ) {
+		this.sky.followCamera( camera );
+		if ( this.usePost ) {
+			if ( ! this.post || this.postCamera !== camera ) this.setupPost( camera );
+			this.post.update( camera, U.sunDir.value, playerPos, speed );
+			this.post.render();
+		} else this.renderer.render( this.scene, camera );
 	}
 }

@@ -20,7 +20,11 @@ export class Menu {
 	}
 
 	clear() { if ( this.current ) { this.current.remove(); this.current = null; } }
-	show( el ) { this.clear(); this.current = el; this.root.appendChild( el ); return el; }
+	show( el ) {
+		this.clear(); this.current = el; this.root.appendChild( el );
+		el.addEventListener( 'click', ( e ) => { if ( e.target.closest( 'button, .card' ) ) this.game.audio?.blip(); } );
+		return el;
+	}
 
 	loading( status, progress ) {
 		if ( ! this.current || ! this.current.classList.contains( 'loading' ) ) {

@@ -73,6 +73,12 @@ export class Settings {
 	/** Apply adaptive downgrades on top of the base preset. Each level removes the most expensive remaining effect. */
 	_compose() {
 		const q = { ...PRESETS[ this.preset ], preset: this.preset };
+		// debug overrides: ?fx=nodof,nomb,notraa,nossr,noao,nobloom,nogodrays,nofog,nohaze
+		const fx = new URLSearchParams( location.search ).get( 'fx' );
+		if ( fx ) for ( const f of fx.split( ',' ) ) {
+			if ( f === 'nodof' ) q.dof = false; if ( f === 'nomb' ) q.motionBlur = false; if ( f === 'notraa' ) q.aa = 'none'; if ( f === 'nossr' ) q.ssr = false;
+			if ( f === 'noao' ) q.ao = false; if ( f === 'nobloom' ) q.bloom = false; if ( f === 'nogodrays' ) q.godrays = false; if ( f === 'nofog' ) q.volumetricFog = false; if ( f === 'nohaze' ) q.haze = false;
+		}
 		const steps = [
 			( q ) => { q.ssr = false; },
 			( q ) => { q.maxPixelRatio = Math.min( q.maxPixelRatio, 1.5 ); },

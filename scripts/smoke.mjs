@@ -15,20 +15,24 @@ const shots = opt( '--shots', 'scratch/shots' );
 const seconds = parseFloat( opt( '--seconds', '6' ) );
 mkdirSync( shots, { recursive: true } );
 
-const server = await createServer( { root: process.cwd(), server: { port: 5199, host: '127.0.0.1', strictPort: true }, logLevel: 'error' } );
+const server = await createServer( { root: process.cwd(), server: { port: 5199, host: '127.0.0.1', strictPort: true, hmr: false, watch: null }, logLevel: 'error' } );
 await server.listen();
 
 const browser = await chromium.launch( {
 	executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium', headless: true,
 	args: [ '--no-sandbox', '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-vulkan=swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader' ]
 } );
-const page = await browser.newPage( { viewport: { width: 960, height: 540 } } );
+const preset = opt( '--preset', 'low' );
+const page = await browser.newPage( { viewport: { width: parseInt( opt( '--width', '800' ) ), height: parseInt( opt( '--height', '450' ) ) } } );
+page.setDefaultTimeout( 180000 );
+await page.addInitScript( ( preset ) => { try { localStorage.setItem( 'rushgear.v1.settings', JSON.stringify( { preset, adaptive: false } ) ); } catch {} }, preset );
 const errors = [], warnings = [];
 page.on( 'console', ( m ) => { const t = m.text(); if ( m.type() === 'error' ) errors.push( t ); else if ( m.type() === 'warning' ) warnings.push( t ); else if ( ! t.startsWith( '[vite]' ) ) console.log( '[log]', t.slice( 0, 300 ) ); } );
 page.on( 'pageerror', ( e ) => errors.push( 'PAGEERROR ' + e.message + '\n' + ( e.stack || '' ) ) );
 
 if ( forceWebGL ) await page.addInitScript( () => { Object.defineProperty( navigator, 'gpu', { value: undefined } ); } );
-await page.goto( 'http://127.0.0.1:5199/', { waitUntil: 'commit', timeout: 120000 } );
+const fx = opt( '--fx', '' );
+await page.goto( 'http://127.0.0.1:5199/' + ( fx ? '?fx=' + fx : '' ), { waitUntil: 'commit', timeout: 120000 } );
 await page.waitForFunction( () => window.RUSHGEAR && window.RUSHGEAR.state === 'menu', null, { timeout: 120000 } ).catch( () => console.log( 'menu not reached' ) );
 console.log( 'backend:', await page.evaluate( () => window.RUSHGEAR.gfx?.backend ) );
 await page.screenshot( { path: `${shots}/01-menu.png` } );
@@ -48,10 +52,11 @@ await page.evaluate( () => { if ( window.RUSHGEAR.race ) window.RUSHGEAR.race.co
 await page.screenshot( { path: `${shots}/02-grid${trackId ? '-' + trackId : ''}.png` } );
 // drive deterministically: autopilot + synchronous simulation, then a few real frames
 await page.evaluate( ( secs ) => { const g = window.RUSHGEAR; g.autopilot = true; g.simulate( secs ); }, seconds );
+if ( args.includes( '--nohud' ) ) await page.evaluate( () => { document.getElementById( 'hud' ).style.display = 'none'; } );
 await page.waitForTimeout( 1500 );
 const telemetry = await page.evaluate( () => { const g = window.RUSHGEAR; const v = g.playerCar?.vehicle; return v ? { paint: g.playerCar.uniforms.color.value.getHexString(), carId: g.playerCar.def.id, cars: g.cars.length, pos1: g.race?.standings[ 0 ]?.name, playerPos: g.race?.entryOf( v ).position, speedKmh: v.speedKmh.toFixed( 1 ), rpm: v.engine.rpm.toFixed( 0 ), gear: v.engine.gear, pos: v.position.toArray().map( ( x ) => x.toFixed( 1 ) ), s: v.proj.s.toFixed( 1 ), lateral: v.proj.lateral.toFixed( 2 ), onGround: v.wheels.map( ( w ) => w.onGround ), damage: v.damage.toFixed( 2 ), fps: g.hud.el.fps.textContent } : null; } );
 console.log( 'telemetry:', JSON.stringify( telemetry ) );
-await page.screenshot( { path: `${shots}/03-driving${trackId ? '-' + trackId : ''}.png` } );
+await page.screenshot( { path: `${shots}/03-driving${trackId ? '-' + trackId : ''}${fx ? '-' + fx.replace( /,/g, '_' ) : ''}.png` } );
 for ( const extra of args.filter( ( a ) => a.startsWith( 'eval:' ) ) ) console.log( 'eval', await page.evaluate( extra.slice( 5 ) ) );
 
 console.log( `\n${errors.length} console errors, ${warnings.length} warnings` );

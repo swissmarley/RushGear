@@ -31,8 +31,8 @@ export function makeAsphaltMaterial( biome ) {
 	const rubber = smoothstep( 0.45, 0.0, abs( u.sub( 0.5 ) ).sub( 0.08 ) ).mul( 0.35 ).mul( smoothstep( 0.2, 0.8, patches ) );
 
 	// puddles: low-frequency worley cells in surface dips, only when wet
-	const puddleNoise = mx_worley_noise_float( p.mul( 0.12 ), 1.0, 0 );
-	const puddleMask = smoothstep( 0.55, 0.35, puddleNoise ).mul( U.wetness ).mul( smoothstep( 0.48, 0.2, abs( u.sub( 0.5 ) ) ).oneMinus().mul( 0.6 ).add( 0.4 ) );
+	const puddleNoise = mx_worley_noise_float( p.mul( 0.045 ), 1.0, 0 );
+	const puddleMask = smoothstep( 0.5, 0.25, puddleNoise ).mul( U.wetness ).mul( smoothstep( 0.48, 0.2, abs( u.sub( 0.5 ) ) ).oneMinus().mul( 0.6 ).add( 0.4 ) );
 	const wetFilm = U.wetness.mul( 0.85 );
 
 	const base = vec3( 0.075, 0.075, 0.08 ).mul( grain.mul( 0.5 ).add( 0.75 ) ).mul( patches.mul( 0.4 ).add( 0.8 ) );
@@ -48,8 +48,8 @@ export function makeAsphaltMaterial( biome ) {
 	mat.roughnessNode = mix( mix( dryRough, float( 0.35 ), wetFilm ), float( 0.04 ), puddleMask );
 	mat.metalnessNode = float( 0 );
 	// rain ripples inside puddles + fine asphalt bump
-	const ripple = sin( p.x.mul( 40.0 ).add( time.mul( 9.0 ) ) ).mul( sin( p.z.mul( 37.0 ).sub( time.mul( 7.0 ) ) ) ).mul( U.rain ).mul( puddleMask ).mul( 0.02 );
-	const bumpH = mx_noise_float( p.mul( 14.0 ) ).mul( 0.02 ).mul( oneMinus( puddleMask ) ).add( ripple );
+	const ripple = sin( p.x.mul( 40.0 ).add( time.mul( 9.0 ) ) ).mul( sin( p.z.mul( 37.0 ).sub( time.mul( 7.0 ) ) ) ).mul( U.rain ).mul( puddleMask ).mul( 0.006 );
+	const bumpH = mx_noise_float( p.mul( 14.0 ) ).mul( 0.01 ).mul( oneMinus( puddleMask ) ).add( ripple );
 	mat.normalNode = proceduralBump( bumpH, 1.0 );
 	mat.clearcoatNode = puddleMask.mul( 0.8 ).add( wetFilm.mul( 0.3 ) );
 	mat.clearcoatRoughnessNode = float( 0.05 );

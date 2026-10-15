@@ -28,6 +28,8 @@ import { GhostRecorder, GhostPlayer } from './game/Ghost.js';
 import { Championship } from './game/Championship.js';
 import { HUD } from './ui/HUD.js';
 import { Menu } from './ui/Menu.js';
+import { Effects } from './render/Effects.js';
+import { AudioEngine } from './audio/AudioEngine.js';
 import { formatTime, makeRNG } from './core/math.js';
 
 const _pos = new Vector3(), _quat = new Quaternion();
@@ -40,6 +42,8 @@ class Game {
 		this.settings = new Settings();
 		this.input = new Input();
 		this.records = new Records();
+		this.audio = new AudioEngine();
+		this.audio.setVolumes( this.settings.volume, this.settings.music );
 		this.menu = new Menu( this.uiRoot, this );
 		this.state = 'loading';
 		this.accumulator = 0;
@@ -67,7 +71,11 @@ class Game {
 		this.garage = new Garage( this.settings.quality );
 		this.gfx.onResize = ( aspect ) => { this.cam.resize( aspect ); this.garage.resize( aspect ); };
 		this.garage.resize( window.innerWidth / window.innerHeight );
-		this.settings.onChange = ( q ) => this.gfx.applyQuality( q );
+		this.settings.onChange = ( q, dir ) => {
+			this.gfx.applyQuality( q );
+			this.effects?.setQualityScale( q.particles );
+			if ( dir ) this.menu.toast( dir === 'down' ? `Adaptive quality: effects reduced (level ${q.adaptiveLevel})` : `Adaptive quality: effects restored (level ${q.adaptiveLevel})` );
+		};
 		this._bindEvents();
 		this.state = 'menu';
 		this.menu.main( this.info );
@@ -104,6 +112,8 @@ class Game {
 		this.hud.setTrack( this.track );
 		this.cam.setTracksideCameras( this.track );
 		this.gfx.setEnvironment( this.track );
+		this.gfx.setLampSources( this.scenery.lamps );
+		this.effects = new Effects( this.gfx.scene, this.settings.quality );
 		this.line = new RacingLine( this.track );
 	}
 
@@ -131,6 +141,7 @@ class Game {
 		this.cars.length = 0; this.vehicles.length = 0;
 		if ( this.track ) { this.gfx.scene.remove( this.track.group ); this.track.group.traverse( ( o ) => o.geometry?.dispose() ); this.track = null; }
 		if ( this.scenery ) { this.gfx.scene.remove( this.scenery.group ); this.scenery.group.traverse( ( o ) => o.geometry?.dispose() ); this.scenery = null; }
+		if ( this.effects ) { this.effects.dispose(); this.effects = null; }
 		this.race = null; this.replay = null; this.recorder = null; this.ghost = null;
 	}
 
@@ -145,6 +156,7 @@ class Game {
 		const entries = [];
 		const player = this.spawnCar( cfg.carId, { name: 'You', isPlayer: true, id: 0, hex: '#ff3b1f' } );
 		this.playerCar = player;
+		this.audio.setPlayerCar( player.def );
 		entries.push( { car: player, name: 'You', isPlayer: true, carName: player.def.name, color: '#ff3b1f' } );
 		const aiCount = cfg.aiCount ?? 8;
 		for ( let i = 0; i < aiCount; i ++ ) {
@@ -358,9 +370,15 @@ class Game {
 			}
 		}
 		for ( let i = 0; i < this.vehicles.length; i ++ ) for ( let j = i + 1; j < this.vehicles.length; j ++ ) Vehicle.collide( this.vehicles[ i ], this.vehicles[ j ] );
+		this.simTime = ( this.simTime || 0 ) + dt;
+		this.effects?.update( dt, this.cars, this.simTime );
 		if ( race ) {
 			race.update( dt );
-			if ( race.isCountdown ) { const n = Math.ceil( race.countdown ); this.hud.center( n > 3 ? '' : String( n ) ); }
+			if ( race.isCountdown ) {
+				const n = Math.ceil( race.countdown );
+				if ( n !== this._lastCount ) { this._lastCount = n; if ( n <= 3 ) this.audio.countdownBeep( false ); }
+				this.hud.center( n > 3 ? '' : String( n ) );
+			} else if ( this._lastCount !== 0 ) { this._lastCount = 0; this.audio.countdownBeep( true ); }
 			if ( live && this.ghostRec ) {
 				if ( ! this.ghostRec.active && race.entryOf( this.playerCar.vehicle ).lapsDone === 0 && race.entryOf( this.playerCar.vehicle ).checkpoints === 0 && race.time < 0.1 ) this.ghostRec.start();
 				this.ghostRec.record( this.playerCar.vehicle, dt );
@@ -392,21 +410,22 @@ class Game {
 
 	renderFrame( dt, alpha ) {
 		this.syncCarVisuals( alpha );
+		this.effects?.flush();
 		const pc = this.playerCar;
-		if ( pc ) {
-			this.cam.update( dt, pc.root.position, pc.root.quaternion, pc.vehicle, this.time );
-			this.gfx.updateShadowTarget( pc.root.position );
-		}
-		U.time.value = this.time;
+		if ( pc ) this.cam.update( dt, pc.root.position, pc.root.quaternion, pc.vehicle, this.time );
+		U.time.value = this.simTime || this.time;
+		this.gfx.updateLighting( dt, this.cam.camera, this.cars, pc?.vehicle );
 		this.hud.update( { vehicle: pc.vehicle, race: this.race, backend: this.gfx.backend, quality: this.settings.quality.preset + ( this.settings.adaptiveLevel ? ` -${this.settings.adaptiveLevel}` : '' ) }, dt );
-		this.gfx.render( this.cam.camera );
+		this.audio.update( dt, this.paused ? null : pc.vehicle, this.cam.camera, this.cars, this.race, { wetness: U.wetness.value, rain: U.rain.value } );
+		this.gfx.render( this.cam.camera, pc?.root.position, pc?.vehicle.speed || 0 );
 	}
 
 	renderReplay( dt ) {
 		const car = this.replay.focusCar();
 		this.cam.update( dt, car.root.position, car.root.quaternion, car.vehicle, this.time );
-		this.gfx.updateShadowTarget( car.root.position );
 		U.time.value = this.time;
+		this.audio.update( dt, null, this.cam.camera, null, null );
+		this.gfx.updateLighting( dt, this.cam.camera, this.cars, car.vehicle );
 		if ( this.replayBar ) this.replayBar.querySelector( '.t' ).textContent = `${formatTime( this.replay.time )} / ${formatTime( this.replay.duration )} · ${car.name}`;
 		this.gfx.render( this.cam.camera );
 	}
@@ -414,6 +433,8 @@ class Game {
 	renderMenu( dt ) {
 		this.time += dt;
 		U.time.value = this.time;
+		this.audio.update( dt, null, this.cam.camera, null, null );
+		this.audio.setMusicIntensity( 0 );
 		if ( this.garageOn ) {
 			this.garage.update( dt, this.time );
 			this.gfx.renderer.render( this.garage.scene, this.garage.camera );
@@ -422,7 +443,8 @@ class Game {
 		const c = this.cam.camera;
 		c.position.set( Math.sin( this.time * 0.1 ) * 40, 12, Math.cos( this.time * 0.1 ) * 40 );
 		c.lookAt( 0, 0, 0 );
-		this.gfx.render( c );
+		this.gfx.updateLighting( dt, c, [], null );
+		this.gfx.render( c, null, 0 );
 	}
 
 	/** Test hook: advance the simulation synchronously (no rendering). */
